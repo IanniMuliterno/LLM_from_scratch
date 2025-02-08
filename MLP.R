@@ -71,128 +71,167 @@ plot_graph_impl <- function(graph, v, parent = NULL, visited = c()) {
   list(graph, visited)
 }
 
-# Define the Value class
-Value <- R6::R6Class(
-  "Value",
-  public = list(
-    value = NULL,
-    name = NULL,
-    initialize = function(value, name = "") {
-      self$value <- value
-      self$name <- name
-    },
-    # Define the `*` operator for multiplication
-    `*` = function(other) {
-      if (inherits(other, "Value")) {
-        Value$new(self$value * other$value, name = paste0(self$name, "*", other$name))
-      } else {
-        Value$new(self$value * other, name = paste0(self$name, "*", other))
-      }
-    },
-    # Define the `+` operator for addition
-    `+` = function(other) {
-      if (inherits(other, "Value")) {
-        Value$new(self$value + other$value, name = paste0(self$name, "+", other$name))
-      } else {
-        Value$new(self$value + other, name = paste0(self$name, "+", other))
-      }
-    },
-    # Print method for better output
-    print = function() {
-      cat("Value:", self$value, "Name:", self$name, "\n")
-    }
-  )
-)
 
-# Define the Neuron class
+Value <- function(data, children=list(), op = "", name=NULL, grad_fn = function() {}) {
+  structure(
+    rlang::env(
+      data = data,
+      children = children,
+      op = op,
+      id = uuid::UUIDgenerate(),
+      name = name,
+      grad = 0,
+      grad_fn = grad_fn
+    ),
+    class= "Value"
+  )
+}
+
+print.Value <- function(x) {
+  cat("<Value data=", x$data, ">\n")
+}
+
+`+.Value` <- function(x, y) {
+  out <- Value(
+    x$data + y$data,
+    children = list(x, y),
+    op = "+",
+    name = paste(x$name, "+", y$name)
+  )
+  
+  out$grad_fn <- function() {
+    x$grad <- x$grad + 1 * out$grad
+    y$grad <- y$grad + 1 * out$grad
+  }
+  
+  out
+}
+
+`*.Value` <- function(x, y) {
+  out <- Value(
+    x$data * y$data,
+    children = list(x, y),
+    op = "*",
+    name = paste(x$name, "*", y$name)
+  )
+  
+  out$grad_fn <- function() {
+    x$grad <- x$grad + y$data * out$grad
+    y$grad <- y$grad + x$data * out$grad
+  }
+  
+  out
+}
+
+# -> implementar -, /, ^, sin, cos, tan, tanh
+
+topo_sort <- function(node, topo = list(), visited = c()) {
+  if (node$id %in% visited) return(list(topo, visited))
+  visited <- c(visited, node$id)
+  for (child in node$children) {
+    .[topo, visited] <- topo_sort(child, topo, visited)
+  }
+  topo <- c(topo, node)
+  list(topo, visited)
+}
+
+backprop <- function(value, visited = c()) {
+  value$grad <- 1
+  .[topo, ..] <- topo_sort(value)
+  for (node in rev(topo)) {
+    node$grad_fn()
+  }
+}
+
+
+a <- Value(2, name="a")
+b <- Value(-3, name = "b")
+c <- Value(4 , name = "c")
+
+d <- a * b
+d$name <- "d"
+
+e <- d + c
+e$name <- "e"
+
+f <- Value(-4, name = "f")
+L <- e*f
+L$name <- "L"
+
+plot_graph(L)
+backprop(L)
+
+a <- Value(2, name = "a")
+b <- a + a
+
+b$name <- "b"
+
+backprop(b)
+
+plot_graph(b)
+################################# Neuron #################################
+# in order to create a multilayer perceptron ( MLP) we need to define the neurons
+# then the layers and then combine them into a MLP
+
 Neuron <- R6::R6Class(
   lock_objects = FALSE,
   public = list(
     initialize = function(nin = 4) {
       self$ws <- lapply(seq_len(nin), function(i) {
-        Value$new(rnorm(1), name = paste0("w", i))
+        Value(rnorm(1), name = paste0("w", i))
       })
-      self$b <- Value$new(0, name="b")
+      self$b <- Value(0, name="b")
     },
     forward = function(x) {
       z <- self$b
       for (i in seq_along(x)) {
-        z$value <- z$value + x[[i]]$value * self$ws[[i]]$value
+        z <- z + x[[i]] * self$ws[[i]]
       }
       z
     }
   )
 )
 
-# Create neurons
 n1 <- Neuron$new(nin = 4)
 n2 <- Neuron$new(nin = 4)
 n3 <- Neuron$new(nin = 4)
 
-# Print weights and bias
 n1$ws
 n1$b
 
-# Define input vector
-x <- list(
-  Value$new(-3, name="x1"),
-  Value$new(-2, name="x2"),
-  Value$new(1, name="x3"),
-  Value$new(4, name="x4")
+x <- c(
+  Value(-3, name="x1"),
+  Value(-2, name="x2"),
+  Value(1, name="x3"),
+  Value(4, name="x4")
 )
 
-# Print input vector
-x
 
-# Perform forward pass
+x
 o <- n1$forward(x)
 o
 
-
-
-plot_graph(o[[1]])
-
-xs <- list(
-  c(-3, -2, 1, 5),
-  c(-3, -2, 1, 2),
-  c(-2, -1, 2, 3),
-  c(-1, -3, 2, 1)
-)
-
-xs <- lapply(seq_along(xs), function(i) {
-  lapply(seq_along(xs[[i]]), function(j) Value(xs[[i]][j], name = paste0("x", i, j)))
-})
-
-ys <- c(1, -1, 1, -1)
-ys <- lapply(
-  seq_along(ys),
-  function(i) Value(ys[i], name = paste0("y", i))
-)
-
-
-for (i in 1:100) {
-  
-  os <- lapply(xs, net$forward)
-  
-  L <- (os[[1]] - ys[[1]])^2 +
-    (os[[2]] - ys[[2]])^2 +
-    (os[[3]] - ys[[3]])^2 +
-    (os[[4]] - ys[[4]])^2
-  
-  backprop(L)
-  
-  for (layer in net$layers) {
-    for(neuron in layer$neurons) {
-      for(w in neuron$ws) {
-        w$data <- w$data - 0.001 * w$grad
-        w$grad <- 0
+plot_graph(o)
+################################# Layer #################################
+Layer <- R6::R6Class(
+  lock_objects = FALSE,
+  public = list(
+    initialize = function(nin, nout, act) {
+      
+      self$neurons <- lapply(seq_len(nout), function(x){
+        Neuron$new(nin = nin)
+      })
+      self$act <- act
+      
+      self$forward <- function(x) {
+        lapply(self$neurons, function(n) {
+        self$act(n$forward(x))
+      }) 
       }
-      neuron$b$data <- neuron$b$data - 0.001 * neuron$b$grad
-      neuron$b$grad <- 0
-    }
-  }
-  
-  print(L)
-}
+      }
+  )
+)
 
-
+l <- Layer$new(4,5,identity)
+l$neurons[[1]]
+l$forward(x)
