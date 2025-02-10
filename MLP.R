@@ -235,3 +235,34 @@ Layer <- R6::R6Class(
 l <- Layer$new(4,5,identity)
 l$neurons[[1]]
 l$forward(x)
+
+
+
+################################# MLP #################################
+mlp <- R6::R6Class(
+  lock_objects = FALSE,
+  public= list(
+    initialize = function(nin, nout = c(1,5,5,5,1)) {
+      
+      self$layer <- list()
+      for(l in seq_along(nout)) {
+        
+        self$layer[[l]] <- Layer$new(nin,nout[i],tanh)
+        nin <- nout[i]
+        
+      }
+      
+      self$forward <- function(x) {
+        o <- x
+        
+        for(l in l$layer) {
+          o <- l$forward(o) 
+        
+        }
+        if(length(o) == 1 ) o[[1]] else o
+        
+      }
+    }
+  )
+)
+
