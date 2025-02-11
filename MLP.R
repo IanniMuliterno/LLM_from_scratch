@@ -239,30 +239,68 @@ l$forward(x)
 
 
 ################################# MLP #################################
-mlp <- R6::R6Class(
+
+MLP <- R6::R6Class(
+  classname = "MLP",
   lock_objects = FALSE,
-  public= list(
-    initialize = function(nin, nout = c(1,5,5,5,1)) {
-      
-      self$layer <- list()
-      for(l in seq_along(nout)) {
-        
-        self$layer[[l]] <- Layer$new(nin,nout[i],tanh)
-        nin <- nout[i]
-        
+  public = list(
+    initialize = function(nin, nouts, act) {
+      szs <- c(nin, nouts)
+      self$layers <- list()
+      for (i in seq_along(nouts)) {
+        self$layers[[i]] <- Layer$new(szs[i], szs[i+1], act)
       }
-      
-      self$forward <- function(x) {
-        o <- x
-        
-        for(l in l$layer) {
-          o <- l$forward(o) 
-        
-        }
-        if(length(o) == 1 ) o[[1]] else o
-        
+    },
+    forward = function(x) {
+      out <- x
+      for (layer in self$layers) {
+        out <- layer$forward(out)
       }
+      if (length(out) == 1) out[[1]] else out
     }
   )
 )
+################################# Practice #################################
+# we'll need to implement tanh and ^ functions to proceed
 
+`^.Value` <- function(x , y) {
+  out <- Value(
+    x$data ^ y
+    ,children = list(x)
+    ,op = "^"
+    ,name = paste(x$name,"^",y)
+  )
+  out$grad_fn <- function() {
+    x$grad <- x$grad + y * (x$grad^(y - 1)) * out$grad
+  }
+  out
+}
+
+`tanh.Value` <- function(x) {
+  
+  t <-  tanh(x$data)
+  out <- Value(
+    t
+    ,children = list(x)
+    ,op = "tanh"
+    ,name = paste0("tanh(",x$name,")")
+  )
+  out$grad_fn <- function() {
+    x$grad <- x$grad + (1 - t^2) * out$grad
+  }
+  out
+}
+
+#sum is positive = 1
+x <- list(list(-3,2,1,-1), # 0
+          list(10,-2,-1,-1), # 1
+          list(-3,-2,5,0), #0
+          list(-4,-2,1,-1),# 0
+          list(3,2,8,-1), # 1
+          list(0,2,1,1)) #1
+
+
+
+M_L_P <- MLP$new(nin = 4,nout = c(4,5,3,1),act = tanh)
+
+lapply(x, M_L_P$forward)
