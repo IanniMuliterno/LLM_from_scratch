@@ -291,16 +291,65 @@ MLP <- R6::R6Class(
   out
 }
 
+
 #sum is positive = 1
-x <- list(list(-3,2,1,-1), # 0
-          list(10,-2,-1,-1), # 1
-          list(-3,-2,5,0), #0
-          list(-4,-2,1,-1),# 0
-          list(3,2,8,-1), # 1
-          list(0,2,1,1)) #1
+x <- list(c(-3,2,1,-1), # 0
+          c(10,-2,-1,-1), # 1
+          c(-3,-2,5,0), #0
+          c(-4,-2,1,-1),# 0
+          c(3,2,8,-1), # 1
+          c(0,2,1,1)) #1
 
 
+xs <- lapply(seq_along(x), function(i) {
+  lapply(seq_along(x[[i]]), function(j) {
+    
+    Value(x[[i]][j], name = paste('x',i,j))
+    
+  })
+})
 
 M_L_P <- MLP$new(nin = 4,nout = c(4,5,3,1),act = tanh)
 
-lapply(x, M_L_P$forward)
+lapply(xs, M_L_P$forward)
+
+ys <- c(1, -1, 1, -1)
+ys <- lapply(
+  seq_along(ys),
+  function(i) Value(ys[i], name = paste0("y", i))
+)
+
+
+for (i in 1:100) {
+  
+  os <- lapply(xs, M_L_P$forward)
+  
+  L <- (os[[1]] - ys[[1]])^2 +
+    (os[[2]] - ys[[2]])^2 +
+    (os[[3]] - ys[[3]])^2 +
+    (os[[4]] - ys[[4]])^2
+  
+  backprop(L)
+  
+  for (layer in M_L_P$layers) {
+    for(neuron in layer$neurons) {
+      for(w in neuron$ws) {
+        w$data <- w$data - 0.01 * w$grad
+        w$grad <- 0
+      }
+      neuron$b$data <- neuron$b$data - 0.01 * neuron$b$grad
+      neuron$b$grad <- 0
+    }
+  }
+  
+  print(L)
+}
+
+
+
+
+
+
+
+
+
