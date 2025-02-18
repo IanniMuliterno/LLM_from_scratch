@@ -26,3 +26,9 @@ ys <- X[, ncol(X)] # a última coluna é a que queremos prever
 xs <- X[, -ncol(X)] # removes a última coluna aqui
 
 xs[1:5,]
+
+library(torch)
+vocab <- structure(1:5, names = c("a", "b", "c", "d", "e"))
+
+v <- nnf_one_hot(vocab[c("a", "e")], num_classes = 5)
+v
