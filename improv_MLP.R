@@ -54,3 +54,18 @@ e[1, drop=FALSE]
 e[2]
 
 C[2]
+
+
+# apllying Bengio el al 2003
+h <- 5
+H <- torch_randn(c*m, h, requires_grad = TRUE)
+d <- torch_zeros(h, requires_grad = TRUE)
+hidden <- torch_tanh(torch_matmul(e, H) + d)
+U <- torch_randn(h, length(vocab), requires_grad = TRUE)
+b <- torch_randn(length(vocab), requires_grad = TRUE)
+logits <- torch_matmul(hidden, U) + b
+counts <- torch_exp(logits)
+probs <- counts / torch_sum(counts, dim=2, keepdim=TRUE)
+
+nll <- -torch_sum(torch_log(probs) * nnf_one_hot(vocab[ys], length(vocab))) / length(ys)
+nll
