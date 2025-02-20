@@ -21,14 +21,36 @@ c <- 3
 dataset <- ngrams(nomes, n = c + 1)
 dataset[1:5]
 
+
 X <- do.call(rbind, dataset)
-ys <- X[, ncol(X)] # a última coluna é a que queremos prever
-xs <- X[, -ncol(X)] # removes a última coluna aqui
+ys <- X[, ncol(X)] # last column is the one we want to predict
+xs <- X[, -ncol(X)] # remove last column for the predictor dataset
 
 xs[1:5,]
+
 
 library(torch)
 vocab <- structure(1:5, names = c("a", "b", "c", "d", "e"))
 
 v <- nnf_one_hot(vocab[c("a", "e")], num_classes = 5)
 v
+
+W <- torch_rand(5,5)
+
+# defining weight matrice
+
+m <- 3 #dimension that we want to use to represent each character
+vocab <- sort(unique(c(xs,ys)))
+vocab <- structure(seq_along(vocab), names = vocab)
+
+# C represents the weights
+C <- torch_randn(length(vocab), m, requires_grad = TRUE)
+e1 <- C[vocab[xs[,1]]]
+e2 <- C[vocab[xs[,2]]]
+e3 <- C[vocab[xs[,3]]]
+
+e <- torch_cat(list(e1,e2,e3),dim = 2)
+e[1, drop=FALSE]
+e[2]
+
+C[2]
