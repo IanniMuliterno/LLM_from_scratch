@@ -67,5 +67,7 @@ logits <- torch_matmul(hidden, U) + b
 counts <- torch_exp(logits)
 probs <- counts / torch_sum(counts, dim=2, keepdim=TRUE)
 
-nll <- -torch_sum(torch_log(probs) * nnf_one_hot(vocab[ys], length(vocab))) / length(ys)
+
+nll <- nnf_cross_entropy(counts, vocab[ys])
+nllh_log(probs) * nnf_one_hot(vocab[ys], length(vocab))) / length(ys)
 nll
